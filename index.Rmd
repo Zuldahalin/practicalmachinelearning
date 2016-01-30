@@ -2,7 +2,9 @@
 title: "Prediction Assignment"
 author: "Zulkhairi MD"
 date: "January 29, 2016"
-output: html_document
+output: 
+  html_document: 
+    keep_md: yes
 ---
 ##Executive Summary##  
 This project is an assignment to predict how well participants in an exercise program do their exercises. Data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants was used and split into training data and testing data. More information can be found from the website http://groupware.les.inf.puc-rio.br/har.  
