@@ -1,0 +1,88 @@
+---
+title: "Prediction Assignment"
+author: "Zulkhairi MD"
+date: "January 29, 2016"
+output: html_document
+---
+##Executive Summary##  
+This project is an assignment to predict how well participants in an exercise program do their exercises. Data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants was used and split into training data and testing data. More information can be found from the website http://groupware.les.inf.puc-rio.br/har.  
+  
+##Exploratory Data Analysis##    
+###Preprocessing###  
+Both the training and testing data sets were downloaded from https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv and
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv  
+  
+
+```{r, loading data set}
+#download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", #"./pml-training.csv")
+#download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", #"./pml-testing.csv")
+traindat <- read.csv("pml-training.csv")
+#colnames(traindat)#contains 160 variables with classe as the outcome variable
+#summary(traindat)#there are 19622 rows
+testdat <- read.csv("pml-testing.csv")
+#colnames(testdat)#contains 160 variables
+#summary(testdat)#there are 20 rows
+```
+  
+###Data Cleansing###
+Variables in first 7 columns such as index, name, timestamps and windows are discarded since they are not used for prediction. Same with variables with more than 95% NAs are removed.
+```{r, cleansing}
+discardCols <- grep("name|timestamp|window|X", colnames(traindat), value=F)
+traindat <- traindat[-discardCols]#remove the first 7 columns from the data set
+testdat <- testdat[-discardCols]
+#There are many variables with more than 95% NAs, and these are also discarded from the data set.
+traindat[traindat==""] <- NA#some variables with blanks are assigned as NAs and are also removed.
+testdat[testdat==""] <- NA
+traindat <- traindat[, colSums(is.na(traindat)) < nrow(traindat)*0.95]#keep variables with at least 95% non-NAs. This results in 53 usable variables including the outcome variable.
+testdat <- testdat[, colSums(is.na(testdat)) < nrow(testdat)*0.95]
+```
+The cleaned data sets traindat and testdat have 53 variables with both having the same first 52 variables followed by the last variable classe in the traindat and problem_id in testdat. traindat has 19622 rows whilst testdat has 20 rows.  
+  
+##Split training data set##  
+traindat is split into training set (70%) for prediction and validation set (30%) to find the out of-sample-error.
+```{r, split data set}
+library(caret)
+set.seed(1234)
+inTrain <- createDataPartition(traindat$classe, p = 0.7, list = FALSE)
+training <- traindat[inTrain, ]
+validation <- traindat[-inTrain, ]
+```
+training set has 13737 rows and validation set has 5885 rows.  
+k-fold cross validation is used on the training set to predict the outcome.  
+```{r, k-fold classification}
+library(rpart); library(rpart.plot); library(rattle); library(caret)
+control <- trainControl(method = "cv", number = 5)#cross-validation
+fitRpart <- train(classe ~., data = training, method = "rpart", trControl = control)#if connection failed, need to re-run R due to previous parallel processing
+print(fitRpart)
+fancyRpartPlot(fitRpart$finalModel)
+#Use the train model to predict the accuracy of the validation set
+predRpart <- predict(fitRpart, validation)
+confusionMatrix(validation$classe, predRpart)#display results
+```
+  
+Result of the classification tree shows accuracy less than 50%, hence model is not a good predictor of classe.  
+  
+###Random Forest###
+Use the random forest cross validation to compare the accuracy and out-of-sample error and later use the train model to predict the accuracy of the validation set.  
+```{r, random forest}
+library(randomForest)
+fitRF <- train(classe ~., data = training, method = "rf", trControl = control)#15 mins processing
+predRF <- predict(fitRF, validation)
+confusionMatrix(validation$classe, predRF)#display results
+```
+  
+Result shows 99% accuracy with very small out-of-sample error. Hence the model predicted using the random forest method is a good predictor of classe.   
+  
+##Prediction of Test Data##
+Use the random forest method to predict the testdat data set.
+```{r, test data prediction}
+#fitRF$bestTune$mtry
+RFmodel = randomForest(classe ~ ., data = training, 
+                            mtry = fitRF$bestTune$mtry)
+predict(RFmodel, newdata = testdat)
+```
+  
+##Concusion##
+Overall, the model gave a fairly accurate prediction of the outcome variable classe in the weight lifting exercise. Based on the cleaned data sets, the analysis begun with splitting the training data sets into train and validation sets. The purpose of which was to identify the accuracy of the trained model and find the out-of-sample error. Using the classification tree with k-fold cross-validation, the result was not desirable with low accuracy and high out-of-samlple error. Random forest method was used as it was found in previous works to have higher accuracy and good prediction capability. True enough, when applied to the training data set, random forest gave high accuracy in excess of 99% and deemed to be a good model. The model was then used to predict the test data set.  
+  
+##End of Project##  
