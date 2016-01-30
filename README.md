@@ -2,4 +2,4 @@
 Repository for Practical Machine Learning course project
   
 Instruction to graders:  
-Please click on the index.Rmd and index.html files to access the assignment.
+To view the html version of the R markdown file, open a web browser and navigate to or click on the following link http://zuldahalin.github.io/practicalmachinelearning/  
