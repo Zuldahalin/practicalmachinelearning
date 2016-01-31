@@ -13,7 +13,7 @@ Both the training and testing data sets were downloaded from https://d396qusza40
 https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv  
   
 
-```{r, loading data set, cache=TRUE}
+```{r, loading data set}
 #download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", #"./pml-training.csv")
 #download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", #"./pml-testing.csv")
 traindat <- read.csv("pml-training.csv")
@@ -58,7 +58,7 @@ table(validation$classe) %>% barplot(col = "wheat", xlab = "classe", main = "Val
   
 Based on the graphs, both training and validation sets are equally distributed. This should give an accurate cross validation and prediction of the outcome.  
 K-fold cross validation is used on the training set to predict the outcome.  
-```{r, k-fold classification, cache=TRUE}
+```{r, k-fold classification}
 library(rpart); library(rpart.plot); library(rattle); library(caret)
 #Prepare for parallel processing to be used later in time-consuming random forest algorithm.
 #Configure parallel processing
@@ -89,7 +89,7 @@ Result of the classification tree shows accuracy less than 50%, hence model is n
   
 ###Random Forest###
 Use the random forest cross validation to compare the accuracy and out-of-sample error and later use the train model to predict the accuracy of the validation set.  
-```{r, random forest, cache=TRUE}
+```{r, random forest}
 library(randomForest)
 fitRF <- train(classe ~., data = training, method = "rf", trControl = fitControl)#Without parallel 15 mins processing, with parallel 13.5 mins.
 #De-register parallel processing cluster
