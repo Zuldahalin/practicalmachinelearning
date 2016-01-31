@@ -2,12 +2,10 @@
 title: "Prediction Assignment"
 author: "Zulkhairi MD"
 date: "January 29, 2016"
-output: 
-  html_document: 
-    keep_md: yes
+output: html_document
 ---
 ##Executive Summary##  
-This project is an assignment to predict how well participants in an exercise program do their exercises. Data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants was used and split into training data and testing data. More information can be found from the website http://groupware.les.inf.puc-rio.br/har.  
+This project is an assignment to predict how well participants in an exercise program do their exercises. Data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants was used and split into training data and testing data. More information can be found from the website http://groupware.les.inf.puc-rio.br/har. The author would like to acknowledge the work by Velloso et al. (2013) for providing the WLE data set.  
   
 ##Exploratory Data Analysis##    
 ###Preprocessing###  
@@ -15,7 +13,7 @@ Both the training and testing data sets were downloaded from https://d396qusza40
 https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv  
   
 
-```{r, loading data set}
+```{r, loading data set, cache=TRUE}
 #download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", #"./pml-training.csv")
 #download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", #"./pml-testing.csv")
 traindat <- read.csv("pml-training.csv")
@@ -49,12 +47,37 @@ inTrain <- createDataPartition(traindat$classe, p = 0.7, list = FALSE)
 training <- traindat[inTrain, ]
 validation <- traindat[-inTrain, ]
 ```
-training set has 13737 rows and validation set has 5885 rows.  
-k-fold cross validation is used on the training set to predict the outcome.  
-```{r, k-fold classification}
+Training set has 13737 rows and validation set has 5885 rows.  
+The training and validation sets is based on the participants' exercises grouped into 5 different classes. With the exception of class A, which corresponds to the right way of doing the exercise, the other 4 classes correspond to common mistakes made during the exercise. The distribution of the classes is shown in the following graph based on the training and validation sets.  
+```{r, data distribution}
+library(dplyr)
+par(mfrow = c(1, 2), mar = c(5, 4, 2, 1))
+table(training$classe) %>% barplot(col = "wheat", xlab = "classe", main = "Training set")
+table(validation$classe) %>% barplot(col = "wheat", xlab = "classe", main = "Validation set")
+```
+  
+Based on the graphs, both training and validation sets are equally distributed. This should give an accurate cross validation and prediction of the outcome.  
+K-fold cross validation is used on the training set to predict the outcome.  
+```{r, k-fold classification, cache=TRUE}
 library(rpart); library(rpart.plot); library(rattle); library(caret)
-control <- trainControl(method = "cv", number = 5)#cross-validation
-fitRpart <- train(classe ~., data = training, method = "rpart", trControl = control)#if connection failed, need to re-run R due to previous parallel processing
+#Prepare for parallel processing to be used later in time-consuming random forest algorithm.
+#Configure parallel processing
+library(parallel); require(iterators);require(foreach)
+library(doParallel)
+cluster <- makeCluster(detectCores() - 1)#leave 1 core for OS
+registerDoParallel(cluster)
+#Configure trainControl object.
+fitControl <- trainControl(method = "cv", #cross-validation
+                           number = 10, #using k-fold cross-validation
+                           allowParallel = TRUE)#enable parallel processing
+#Develop training model
+#Train the model using trainControl() object created.
+#fit <- train(classe ~. , method = "rf", data = training, trControl = fitControl)#less than 10 secs.
+#De-register parallel processing cluster
+#stopCluster(cluster)#shut down the cluster for parallel processing
+
+#control <- trainControl(method = "cv", number = 5)#cross-validation
+fitRpart <- train(classe ~., data = training, method = "rpart", trControl = fitControl)#if connection failed, need to re-run R due to previous parallel processing
 print(fitRpart)
 fancyRpartPlot(fitRpart$finalModel)
 #Use the train model to predict the accuracy of the validation set
@@ -66,9 +89,11 @@ Result of the classification tree shows accuracy less than 50%, hence model is n
   
 ###Random Forest###
 Use the random forest cross validation to compare the accuracy and out-of-sample error and later use the train model to predict the accuracy of the validation set.  
-```{r, random forest}
+```{r, random forest, cache=TRUE}
 library(randomForest)
-fitRF <- train(classe ~., data = training, method = "rf", trControl = control)#15 mins processing
+fitRF <- train(classe ~., data = training, method = "rf", trControl = fitControl)#Without parallel 15 mins processing, with parallel 13.5 mins.
+#De-register parallel processing cluster
+stopCluster(cluster)#shut down the cluster for parallel processing
 predRF <- predict(fitRF, validation)
 confusionMatrix(validation$classe, predRF)#display results
 ```
@@ -85,6 +110,9 @@ predict(RFmodel, newdata = testdat)
 ```
   
 ##Concusion##
-Overall, the model gave a fairly accurate prediction of the outcome variable classe in the weight lifting exercise. Based on the cleaned data sets, the analysis begun with splitting the training data sets into train and validation sets. The purpose of which was to identify the accuracy of the trained model and find the out-of-sample error. Using the classification tree with k-fold cross-validation, the result was not desirable with low accuracy and high out-of-samlple error. Random forest method was used as it was found in previous works to have higher accuracy and good prediction capability. True enough, when applied to the training data set, random forest gave high accuracy in excess of 99% and deemed to be a good model. The model was then used to predict the test data set.  
+Overall, the model gave a fairly accurate prediction of the outcome variable classe in the weight lifting exercise. Based on the cleaned data sets, the analysis begun with splitting the training data sets into train and validation sets. The purpose of which was to identify the accuracy of the trained model and find the out-of-sample error. Using the classification tree with k-fold cross-validation, the result was not desirable with low accuracy and high out-of-samlple error. Random forest method was used as it was found in previous works to have higher accuracy and good prediction capability. Parallel processing was enabled to speed up the execution of the time-consuming random forest execution. True enough, when applied to the training data set, random forest gave high accuracy in excess of 99% and deemed to be a good model. The model was then used to predict the test data set.  
   
-##End of Project##  
+##Reference##  
+Velloso, E., Bulling, A., Gellersen, H., Ugulino, W., & Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+Read more: http://groupware.les.inf.puc-rio.br/har#ixzz3yn1IFZOD
